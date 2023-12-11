@@ -1,0 +1,51 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Load MovieLens 20M dataset
+movies = pd.read_csv('movies.csv')
+ratings = pd.read_csv('ratings.csv')
+
+# Merge datasets
+movie_ratings = pd.merge(ratings, movies, on='movieId')
+
+# Create a user-movie rating matrix
+user_movie_ratings = movie_ratings.pivot_table(index='userId', columns='title', values='rating')
+
+# Fill missing values with 0
+user_movie_ratings = user_movie_ratings.fillna(0)
+
+# Split the data into training and testing sets
+train_data, test_data = train_test_split(user_movie_ratings, test_size=0.2)
+
+# Calculate cosine similarity between users
+user_similarity = cosine_similarity(train_data)
+
+# Predict ratings based on user similarity
+def predict_ratings(user_similarity, user_movie_ratings):
+    mean_user_rating = user_movie_ratings.mean(axis=1)
+    ratings_diff = (user_movie_ratings - mean_user_rating[:, np.newaxis])
+    pred = mean_user_rating[:, np.newaxis] + user_similarity.dot(ratings_diff) / np.array([np.abs(user_similarity).sum(axis=1)]).T
+    return pred
+
+# Make predictions on the test set
+user_ratings_pred = predict_ratings(user_similarity, test_data)
+
+# Example: Recommend movies for a specific user
+def recommend_movies(user_ratings_pred, user_movie_ratings, user_id, n=5):
+    sorted_movie_indices = user_ratings_pred[user_id].argsort()[::-1]
+    user_movies = user_movie_ratings.columns
+    movies_not_watched = user_movies[user_movie_ratings.loc[user_id] == 0]
+    recommended_movies = movies_not_watched[sorted_movie_indices][:n]
+    return recommended_movies
+
+# Example usage:
+user_id = 1
+recommendations = recommend_movies(user_ratings_pred, user_movie_ratings, user_id, n=5)
+print("Recommended Movies for User {}: {}".format(user_id, recommendations))
+
+
+
+
+
+
